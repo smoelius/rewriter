@@ -1,0 +1,12 @@
+[package]
+name = "rewriter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tempfile = "3.10"
+
+[features]
+check-offsets = []
+check-rewrites = []
+check-spans = []
