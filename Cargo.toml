@@ -11,6 +11,13 @@ check-offsets = []
 check-rewrites = []
 check-spans = []
 
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing-errors-doc = "allow"
+missing-panics-doc = "allow"
+# smoelius: Revisit allowing `clippy::must-use-candidate`.
+must-use-candidate = "allow"
+
 [lints.rust.unexpected_cfgs]
 level = "deny"
 check-cfg = ["cfg(dylint_lib, values(any()))"]
