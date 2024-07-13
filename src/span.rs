@@ -1,3 +1,4 @@
+use crate::interface;
 use std::cmp::Ordering;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -31,6 +32,24 @@ impl PartialOrd for LineColumn {
     }
 }
 
+impl interface::LineColumn for LineColumn {
+    fn line(&self) -> usize {
+        self.line
+    }
+
+    fn line_mut(&mut self) -> &mut usize {
+        &mut self.line
+    }
+
+    fn column(&self) -> usize {
+        self.column
+    }
+
+    fn column_mut(&mut self) -> &mut usize {
+        &mut self.column
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Span {
     start: LineColumn,
@@ -41,12 +60,20 @@ impl Span {
     pub fn new(start: LineColumn, end: LineColumn) -> Self {
         Self { start, end }
     }
+}
 
-    pub fn start(&self) -> LineColumn {
+impl interface::Span for Span {
+    type LineColumn = LineColumn;
+
+    fn line_column(line: usize, column: usize) -> Self::LineColumn {
+        LineColumn { line, column }
+    }
+
+    fn start(&self) -> LineColumn {
         self.start
     }
 
-    pub fn end(&self) -> LineColumn {
+    fn end(&self) -> LineColumn {
         self.end
     }
 }

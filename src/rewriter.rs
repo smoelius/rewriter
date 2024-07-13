@@ -1,3 +1,4 @@
+use crate::interface::Span as _;
 use crate::offset_based_rewriter::{self, OffsetBasedRewriter};
 use crate::offset_calculator::{self, OffsetCalculator};
 use crate::span::{LineColumn, Span};

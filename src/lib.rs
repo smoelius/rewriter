@@ -1,6 +1,8 @@
 mod backup;
 pub use backup::Backup;
 
+pub mod interface;
+
 mod offset_based_rewriter;
 
 mod offset_calculator;
