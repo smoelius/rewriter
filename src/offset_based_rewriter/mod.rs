@@ -7,7 +7,7 @@ use impls::EagerRewriter;
 
 pub trait Interface {
     fn contents(self) -> String;
-    fn rewrite(&mut self, start: usize, end: usize, replacement: &str);
+    fn rewrite(&mut self, start: usize, end: usize, replacement: &str) -> String;
 }
 
 #[derive(Debug)]
@@ -43,10 +43,12 @@ impl<'original> Interface for OffsetBasedRewriter<'original> {
         contents
     }
 
-    fn rewrite(&mut self, start: usize, end: usize, replacement: &str) {
-        self.lazy.rewrite(start, end, replacement);
+    fn rewrite(&mut self, start: usize, end: usize, replacement: &str) -> String {
+        let replaced = self.lazy.rewrite(start, end, replacement);
 
         #[cfg(feature = "check-rewrites")]
-        self.eager.rewrite(start, end, replacement);
+        assert_eq!(replaced, self.eager.rewrite(start, end, replacement));
+
+        replaced
     }
 }

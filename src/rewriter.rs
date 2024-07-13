@@ -35,7 +35,7 @@ impl<'original> Rewriter<'original> {
         self.offset_based_rewriter.contents()
     }
 
-    pub fn rewrite(&mut self, span: Span, replacement: &str) {
+    pub fn rewrite(&mut self, span: Span, replacement: &str) -> String {
         use offset_based_rewriter::Interface;
 
         assert!(
@@ -48,9 +48,11 @@ impl<'original> Rewriter<'original> {
 
         let (start, end) = self.offsets_from_span(span);
 
-        self.offset_based_rewriter.rewrite(start, end, replacement);
+        let replaced = self.offset_based_rewriter.rewrite(start, end, replacement);
 
         self.line_column = span.end();
+
+        replaced
     }
 
     fn offsets_from_span(&mut self, span: Span) -> (usize, usize) {
