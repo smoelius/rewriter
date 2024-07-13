@@ -9,7 +9,7 @@ tempfile = "3.10"
 [features]
 check-offsets = []
 check-rewrites = []
-check-spans = []
+__check-proc-macro2-spans = []
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
