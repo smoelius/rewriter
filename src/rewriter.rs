@@ -1,19 +1,18 @@
-use crate::interface::Span as _;
+use crate::interface::Span;
 use crate::offset_based_rewriter::{self, OffsetBasedRewriter};
 use crate::offset_calculator::OffsetCalculator;
-use crate::span::{LineColumn, Span};
 
 #[derive(Debug)]
-pub struct Rewriter<'original> {
-    line_column: LineColumn,
-    offset_calculator: OffsetCalculator<'original>,
+pub struct Rewriter<'original, S: Span> {
+    line_column: S::LineColumn,
+    offset_calculator: OffsetCalculator<'original, S>,
     offset_based_rewriter: OffsetBasedRewriter<'original>,
 }
 
-impl<'original> Rewriter<'original> {
+impl<'original, S: Span> Rewriter<'original, S> {
     pub fn new(original: &'original str) -> Self {
         Self {
-            line_column: LineColumn { line: 1, column: 0 },
+            line_column: S::line_column(1, 0),
             offset_calculator: OffsetCalculator::new(original),
             offset_based_rewriter: OffsetBasedRewriter::new(original),
         }
@@ -25,7 +24,7 @@ impl<'original> Rewriter<'original> {
         self.offset_based_rewriter.contents()
     }
 
-    pub fn rewrite(&mut self, span: Span, replacement: &str) -> String {
+    pub fn rewrite(&mut self, span: &S, replacement: &str) -> String {
         use offset_based_rewriter::Interface;
 
         assert!(

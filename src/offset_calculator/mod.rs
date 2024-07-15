@@ -1,5 +1,4 @@
-use crate::interface::Span as _;
-use crate::span::{LineColumn, Span};
+use crate::interface::Span;
 
 #[cfg(feature = "__check-proc-macro2-spans")]
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -14,22 +13,22 @@ use impls::StatelessOffsetCalculator;
 #[cfg(feature = "__check-proc-macro2-spans")]
 static BASE_NEXT: AtomicUsize = AtomicUsize::new(0);
 
-pub trait Interface {
-    fn offset_from_line_column(&mut self, line_column: LineColumn) -> (usize, bool);
+pub trait Interface<S: Span> {
+    fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool);
 }
 
 #[derive(Debug)]
-pub struct OffsetCalculator<'original> {
-    caching: CachingOffsetCalculator<'original>,
+pub struct OffsetCalculator<'original, S: Span> {
+    caching: CachingOffsetCalculator<'original, S>,
 
     #[cfg(feature = "check-offsets")]
-    stateless: StatelessOffsetCalculator<'original>,
+    stateless: StatelessOffsetCalculator<'original, S>,
 
     #[cfg(feature = "__check-proc-macro2-spans")]
     base: usize,
 }
 
-impl<'original> OffsetCalculator<'original> {
+impl<'original, S: Span> OffsetCalculator<'original, S> {
     pub fn new(original: &'original str) -> Self {
         #[cfg(feature = "__check-proc-macro2-spans")]
         let base = BASE_NEXT.fetch_add(1 + original.as_bytes().len(), Ordering::SeqCst);
@@ -45,7 +44,7 @@ impl<'original> OffsetCalculator<'original> {
         }
     }
 
-    pub fn offsets_from_span(&mut self, span: Span) -> (usize, usize) {
+    pub fn offsets_from_span(&mut self, span: &S) -> (usize, usize) {
         let (start, start_ascii) = self.offset_from_line_column(span.start());
         let (end, end_ascii) = self.offset_from_line_column(span.end());
 
@@ -70,8 +69,8 @@ impl<'original> OffsetCalculator<'original> {
     }
 }
 
-impl<'original> Interface for OffsetCalculator<'original> {
-    fn offset_from_line_column(&mut self, line_column: LineColumn) -> (usize, bool) {
+impl<'original, S: Span> Interface<S> for OffsetCalculator<'original, S> {
+    fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool) {
         let (offset, ascii) = self.caching.offset_from_line_column(line_column);
 
         #[cfg(feature = "check-offsets")]
