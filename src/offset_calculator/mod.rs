@@ -81,8 +81,8 @@ impl<'original, S: Span> Interface<S> for OffsetCalculator<'original, S> {
         {
             let (offset_comparator, ascii_comparator) =
                 self.stateless.offset_from_line_column(line_column);
-            assert_eq!(offset, offset_comparator);
-            assert_eq!(ascii, ascii_comparator);
+            assert_eq!(offset, offset_comparator, "failed for {line_column:?}");
+            assert_eq!(ascii, ascii_comparator, "failed for {line_column:?}");
         }
 
         (offset, ascii)
