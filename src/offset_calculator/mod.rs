@@ -14,6 +14,10 @@ use impls::StatelessOffsetCalculator;
 static BASE_NEXT: AtomicUsize = AtomicUsize::new(0);
 
 pub trait Interface<S: Span> {
+    /// Returns the byte offset for `line_column`
+    ///
+    /// The second component (the `bool`) indicates whether all characters up to the offset are
+    /// ASCII.
     fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool);
 }
 
