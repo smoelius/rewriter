@@ -1,19 +1,28 @@
 use crate::interface::Span;
 use crate::offset_based_rewriter::{self, OffsetBasedRewriter};
 use crate::offset_calculator::OffsetCalculator;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
 pub struct Rewriter<'original, S: Span> {
     line_column: S::LineColumn,
-    offset_calculator: OffsetCalculator<'original, S>,
+    offset_calculator: Rc<RefCell<OffsetCalculator<'original, S>>>,
     offset_based_rewriter: OffsetBasedRewriter<'original>,
 }
 
 impl<'original, S: Span> Rewriter<'original, S> {
     pub fn new(original: &'original str) -> Self {
+        let offset_calculator = Rc::new(RefCell::new(OffsetCalculator::new(original)));
+        Self::with_offset_calculator(original, offset_calculator)
+    }
+
+    pub fn with_offset_calculator(
+        original: &'original str,
+        offset_calculator: Rc<RefCell<OffsetCalculator<'original, S>>>,
+    ) -> Self {
         Self {
             line_column: S::line_column(1, 0),
-            offset_calculator: OffsetCalculator::new(original),
+            offset_calculator,
             offset_based_rewriter: OffsetBasedRewriter::new(original),
         }
     }
@@ -35,7 +44,7 @@ impl<'original, S: Span> Rewriter<'original, S> {
             span.end(),
         );
 
-        let (start, end) = self.offset_calculator.offsets_from_span(span);
+        let (start, end) = self.offset_calculator.borrow_mut().offsets_from_span(span);
 
         let replaced = self.offset_based_rewriter.rewrite(start, end, replacement);
 
