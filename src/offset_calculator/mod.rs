@@ -34,8 +34,18 @@ pub struct OffsetCalculator<'original, S: Span> {
 
 impl<'original, S: Span> OffsetCalculator<'original, S> {
     pub fn new(original: &'original str) -> Self {
+        Self::new_private(original, true)
+    }
+
+    pub(crate) fn new_private(original: &'original str, with_line_history: bool) -> Self {
+        let caching = if with_line_history {
+            CachingOffsetCalculator::new(original)
+        } else {
+            CachingOffsetCalculator::without_line_history(original)
+        };
+
         Self {
-            caching: CachingOffsetCalculator::new(original),
+            caching,
 
             #[cfg(feature = "check-offsets")]
             stateless: StatelessOffsetCalculator::new(original),
