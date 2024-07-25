@@ -6,6 +6,7 @@ pub mod interface;
 mod offset_based_rewriter;
 
 mod offset_calculator;
+pub use offset_calculator::OffsetCalculator;
 
 mod rewriter;
 pub use rewriter::Rewriter;
