@@ -34,9 +34,6 @@ pub struct OffsetCalculator<'original, S: Span> {
 
 impl<'original, S: Span> OffsetCalculator<'original, S> {
     pub fn new(original: &'original str) -> Self {
-        #[cfg(feature = "__check-proc-macro2-spans")]
-        let base = BASE_NEXT.fetch_add(1 + original.as_bytes().len(), Ordering::SeqCst);
-
         Self {
             caching: CachingOffsetCalculator::new(original),
 
@@ -44,7 +41,7 @@ impl<'original, S: Span> OffsetCalculator<'original, S> {
             stateless: StatelessOffsetCalculator::new(original),
 
             #[cfg(feature = "__check-proc-macro2-spans")]
-            base,
+            base: BASE_NEXT.fetch_add(1 + original.as_bytes().len(), Ordering::SeqCst),
         }
     }
 
