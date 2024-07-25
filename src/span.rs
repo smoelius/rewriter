@@ -57,6 +57,7 @@ pub struct Span {
 }
 
 impl Span {
+    #[must_use]
     pub fn new(start: LineColumn, end: LineColumn) -> Self {
         Self { start, end }
     }

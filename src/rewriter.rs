@@ -12,6 +12,7 @@ pub struct Rewriter<'original, S: Span = SpanDefault> {
 }
 
 impl<'original, S: Span> Rewriter<'original, S> {
+    #[must_use]
     pub fn new(original: &'original str) -> Self {
         let offset_calculator =
             Rc::new(RefCell::new(OffsetCalculator::new_private(original, false)));
