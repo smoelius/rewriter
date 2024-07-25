@@ -1,10 +1,11 @@
 use crate::interface::Span;
 use crate::offset_based_rewriter::{self, OffsetBasedRewriter};
 use crate::offset_calculator::OffsetCalculator;
+use crate::SpanDefault;
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
-pub struct Rewriter<'original, S: Span> {
+pub struct Rewriter<'original, S: Span = SpanDefault> {
     line_column: S::LineColumn,
     offset_calculator: Rc<RefCell<OffsetCalculator<'original, S>>>,
     offset_based_rewriter: OffsetBasedRewriter<'original>,

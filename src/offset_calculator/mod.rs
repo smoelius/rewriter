@@ -1,4 +1,5 @@
 use crate::interface::Span;
+use crate::SpanDefault;
 
 #[cfg(feature = "__check-proc-macro2-spans")]
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -22,7 +23,7 @@ pub trait Interface<S: Span> {
 }
 
 #[derive(Debug)]
-pub struct OffsetCalculator<'original, S: Span> {
+pub struct OffsetCalculator<'original, S: Span = SpanDefault> {
     caching: CachingOffsetCalculator<'original, S>,
 
     #[cfg(feature = "check-offsets")]
