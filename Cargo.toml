@@ -10,3 +10,7 @@ tempfile = "3.10"
 check-offsets = []
 check-rewrites = []
 check-spans = []
+
+[lints.rust.unexpected_cfgs]
+level = "deny"
+check-cfg = ["cfg(dylint_lib, values(any()))"]
