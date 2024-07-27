@@ -34,6 +34,7 @@ pub struct OffsetCalculator<'original, S: Span = SpanDefault> {
 }
 
 impl<'original, S: Span> OffsetCalculator<'original, S> {
+    #[must_use]
     pub fn new(original: &'original str) -> Self {
         Self::new_private(original, true)
     }
