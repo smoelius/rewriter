@@ -12,6 +12,7 @@ proc-macro2 = { version = "1.0", features = [
 
 [dev-dependencies]
 assert_cmd = "2.0"
+regex = "1.0"
 
 [features]
 check-offsets = []
@@ -28,3 +29,14 @@ missing-panics-doc = "allow"
 [lints.rust.unexpected_cfgs]
 level = "deny"
 check-cfg = ["cfg(dylint_lib, values(any()))"]
+
+[workspace.metadata.dylint]
+libraries = [
+    { git = "https://github.com/trailofbits/dylint", pattern = "examples/general" },
+    { git = "https://github.com/trailofbits/dylint", pattern = "examples/supplementary" },
+    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/collapsible_unwrap" },
+    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/const_path_join" },
+    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/misleading_variable_name" },
+    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/question_mark_in_expression" },
+    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/try_io_result" },
+]
