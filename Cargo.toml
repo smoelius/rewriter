@@ -1,7 +1,11 @@
 [package]
 name = "rewriter"
 version = "0.1.0"
+authors = ["Samuel Moelius <sam@moeli.us>"]
+description = "Rust utilities for rewriting files"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/smoelius/rewriter"
 
 [dependencies]
 tempfile = "3.10"
