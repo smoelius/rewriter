@@ -4,15 +4,15 @@ Rust utilities for rewriting files
 
 ## Main exports
 
-- `Rewriter` type: for rewriting the contents of files
+- [`Rewriter`] type: for rewriting the contents of files
 
-- `Backup` type: restore a file's contents when dropped, unless explicitly disabled
+- [`Backup`] type: restore a file's contents when dropped, unless explicitly disabled
 
-- `Span` type: names a region of a file, similar to [`proc-macro2::Span`]
+- [`Span`] type: names a region of a file, similar to [`proc-macro2::Span`]
 
-- `LineColumn` type: names a point in a file, similar to [`proc-macro2::LineColumn`]
+- [`LineColumn`] type: names a point in a file, similar to [`proc-macro2::LineColumn`]
 
-- `Span` and `LineColumn` traits: allow span and line-column types to be used with this library
+- [`Span`](https://docs.rs/rewriter/latest/rewriter/interface/trait.Span.html) and [`LineColumn`](https://docs.rs/rewriter/latest/rewriter/interface/trait.LineColumn.html) traits: allow span and line-column types to be used with this library
 
 ## Features
 
@@ -20,6 +20,10 @@ Rust utilities for rewriting files
 
 - `proc-macro2-impl`: Implement the `Span` and `LineColumn` traits for the corresponding types in [`proc-macro2`].
 
+[`Backup`]: https://docs.rs/rewriter/latest/rewriter/struct.Backup.html
+[`LineColumn`]: https://docs.rs/rewriter/latest/rewriter/struct.LineColumn.html
+[`Rewriter`]: https://docs.rs/rewriter/latest/rewriter/struct.Rewriter.html
+[`Span`]: https://docs.rs/rewriter/latest/rewriter/struct.Span.html
 [`proc-macro2::LineColumn`]: https://docs.rs/proc-macro2/latest/proc_macro2/struct.LineColumn.html
 [`proc-macro2::Span`]: https://docs.rs/proc-macro2/latest/proc_macro2/struct.Span.html
 [`proc-macro2`]: https://crates.io/crates/proc-macro2
