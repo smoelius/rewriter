@@ -4,15 +4,15 @@ Rust utilities for rewriting files
 
 ## Main exports
 
-- [`Rewriter`] type: for rewriting the contents of files
+- [`Rewriter`] type for rewriting the contents of files
 
-- [`Backup`] type: restore a file's contents when dropped, unless explicitly disabled
+- [`Backup`] type restores a file's contents when dropped, unless explicitly disabled
 
-- [`Span`] type: names a region of a file, similar to [`proc-macro2::Span`]
+- [`Span`] type names a region of a file, similar to [`proc-macro2::Span`]
 
-- [`LineColumn`] type: names a point in a file, similar to [`proc-macro2::LineColumn`]
+- [`LineColumn`] type names a point in a file, similar to [`proc-macro2::LineColumn`]
 
-- [`Span`](https://docs.rs/rewriter/latest/rewriter/interface/trait.Span.html) and [`LineColumn`](https://docs.rs/rewriter/latest/rewriter/interface/trait.LineColumn.html) traits: allow span and line-column types to be used with this library
+- [`Span`](https://docs.rs/rewriter/latest/rewriter/interface/trait.Span.html) and [`LineColumn`](https://docs.rs/rewriter/latest/rewriter/interface/trait.LineColumn.html) traits allow span and line-column types to be used with this library
 
 ## Features
 
