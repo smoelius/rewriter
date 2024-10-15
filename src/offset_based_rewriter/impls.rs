@@ -33,7 +33,7 @@ impl EagerRewriter {
     }
 }
 
-impl<'original> Interface for LazyRewriter<'original> {
+impl Interface for LazyRewriter<'_> {
     fn contents(mut self) -> String {
         self.rewritten += &self.original[self.offset..];
 
