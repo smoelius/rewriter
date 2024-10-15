@@ -82,7 +82,7 @@ impl<'original, S: Span> OffsetCalculator<'original, S> {
     }
 }
 
-impl<'original, S: Span> Interface<S> for OffsetCalculator<'original, S> {
+impl<S: Span> Interface<S> for OffsetCalculator<'_, S> {
     fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool) {
         let (offset, ascii) = self.caching.offset_from_line_column(line_column);
 

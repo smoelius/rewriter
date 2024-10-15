@@ -29,7 +29,7 @@ impl<'original> OffsetBasedRewriter<'original> {
     }
 }
 
-impl<'original> Interface for OffsetBasedRewriter<'original> {
+impl Interface for OffsetBasedRewriter<'_> {
     #[allow(clippy::let_and_return)]
     fn contents(self) -> String {
         let contents = self.lazy.contents();

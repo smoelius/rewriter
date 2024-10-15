@@ -50,7 +50,7 @@ impl<'original, S: Span> StatelessOffsetCalculator<'original, S> {
     }
 }
 
-impl<'original, S: Span> Interface<S> for CachingOffsetCalculator<'original, S> {
+impl<S: Span> Interface<S> for CachingOffsetCalculator<'_, S> {
     fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool) {
         if line_column < self.line_column {
             let Some(lines_prev) = &self.line_history else {
@@ -141,7 +141,7 @@ fn advance_chars(chars: &mut Chars, n: usize) -> (usize, bool) {
 }
 
 #[allow(clippy::disallowed_methods)]
-impl<'original, S: Span> Interface<S> for StatelessOffsetCalculator<'original, S> {
+impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
     #[cfg_attr(
         dylint_lib = "misleading_variable_name",
         allow(misleading_variable_name)
