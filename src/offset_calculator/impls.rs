@@ -98,7 +98,7 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
         // smoelius: Ensure `chars` is refilled the next time `chars_mut` is called.
         self.chars = None;
 
-        self.offset += suffix.as_bytes().len() + 1;
+        self.offset += suffix.len() + 1;
         self.ascii &= suffix.is_ascii();
         *self.line_column.line_mut() += 1;
         *self.line_column.column_mut() = 0;
@@ -106,7 +106,7 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
         while self.line_column.line() < line {
             let line = self.next_line();
 
-            self.offset += line.as_bytes().len() + 1;
+            self.offset += line.len() + 1;
             self.ascii &= line.is_ascii();
             *self.line_column.line_mut() += 1;
             *self.line_column.column_mut() = 0;
@@ -135,7 +135,7 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
 
 fn advance_chars(chars: &mut Chars, n: usize) -> (usize, bool) {
     let prefix = chars.take(n).collect::<String>();
-    let offset = prefix.as_bytes().len();
+    let offset = prefix.len();
     let ascii = prefix.is_ascii();
     (offset, ascii)
 }
@@ -153,7 +153,7 @@ impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
 
         for _ in 1..line_column.line() {
             let line = lines.next().unwrap();
-            offset += line.as_bytes().len() + 1;
+            offset += line.len() + 1;
             ascii &= line.is_ascii();
         }
 
@@ -163,7 +163,7 @@ impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
             .chars()
             .take(line_column.column())
             .collect::<String>();
-        offset += prefix.as_bytes().len();
+        offset += prefix.len();
         ascii &= prefix.is_ascii();
 
         (offset, ascii)

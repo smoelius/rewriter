@@ -72,7 +72,7 @@ impl Interface for EagerRewriter {
             + replacement
             + std::str::from_utf8(suffix).expect("`suffix` is not valid UTF-8");
 
-        self.delta += replacement.as_bytes().len() as isize - end as isize + start as isize;
+        self.delta += replacement.len() as isize - end as isize + start as isize;
 
         replaced
     }
