@@ -53,7 +53,7 @@ impl<'original, S: Span> OffsetCalculator<'original, S> {
             stateless: StatelessOffsetCalculator::new(original),
 
             #[cfg(feature = "__check-proc-macro2-spans")]
-            base: BASE_NEXT.fetch_add(1 + original.as_bytes().len(), Ordering::SeqCst),
+            base: BASE_NEXT.fetch_add(1 + original.len(), Ordering::SeqCst),
         }
     }
 
