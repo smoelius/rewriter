@@ -29,6 +29,9 @@ fn hack_feature_powerset_udeps() {
 
 fn hack_feature_powerset(subcommand: &str) {
     Command::new("rustup")
+        // smoelius: Remove `CARGO` environment variable to work around:
+        // https://github.com/rust-lang/rust/pull/131729
+        .env_remove("CARGO")
         .env("RUSTFLAGS", "-D warnings")
         .args([
             "run",
