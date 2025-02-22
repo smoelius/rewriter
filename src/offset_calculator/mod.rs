@@ -1,5 +1,5 @@
-use crate::interface::Span;
 use crate::SpanDefault;
+use crate::interface::Span;
 
 #[cfg(feature = "__check-proc-macro2-spans")]
 use std::sync::atomic::{AtomicUsize, Ordering};

@@ -1,7 +1,7 @@
+use crate::SpanDefault;
 use crate::interface::Span;
 use crate::offset_based_rewriter::{self, OffsetBasedRewriter};
 use crate::offset_calculator::OffsetCalculator;
-use crate::SpanDefault;
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Debug)]
