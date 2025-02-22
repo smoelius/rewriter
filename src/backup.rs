@@ -49,7 +49,8 @@ impl Drop for Backup {
                 let after = mtime(&self.path).ok();
 
                 if before
-                    .zip(after).is_none_or(|(before, after)| before < after)
+                    .zip(after)
+                    .is_none_or(|(before, after)| before < after)
                 {
                     break;
                 }
