@@ -36,13 +36,14 @@ struct-field-names = "allow"
 level = "deny"
 check-cfg = ["cfg(dylint_lib, values(any()))"]
 
-[workspace.metadata.dylint]
-libraries = [
-    { git = "https://github.com/trailofbits/dylint", pattern = "examples/general" },
-    { git = "https://github.com/trailofbits/dylint", pattern = "examples/supplementary" },
-    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/collapsible_unwrap" },
-    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/const_path_join" },
-    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/misleading_variable_name" },
-    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/question_mark_in_expression" },
-    { git = "https://github.com/trailofbits/dylint", pattern = "examples/restriction/try_io_result" },
+[[workspace.metadata.dylint.libraries]]
+git = "https://github.com/trailofbits/dylint"
+pattern = [
+    "examples/general",
+    "examples/supplementary",
+    "examples/restriction/collapsible_unwrap",
+    "examples/restriction/const_path_join",
+    "examples/restriction/misleading_variable_name",
+    "examples/restriction/question_mark_in_expression",
+    "examples/restriction/try_io_result",
 ]
