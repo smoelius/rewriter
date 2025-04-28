@@ -1,9 +1,10 @@
 use std::{
+    ffi::OsString,
     io::Result,
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use tempfile::NamedTempFile;
+use tempfile::{Builder, NamedTempFile};
 
 pub struct Backup {
     path: PathBuf,
@@ -74,13 +75,33 @@ fn sibling_tempfile(path: &Path) -> Result<NamedTempFile> {
     let parent = canonical_path
         .parent()
         .expect("should not fail for a canonical path");
-    NamedTempFile::new_in(parent)
+    let prefix = path
+        .file_stem()
+        .map_or(OsString::from(".tmp"), |file_stem| {
+            let mut prefix = OsString::from(".");
+            prefix.push(file_stem);
+            prefix.push("-");
+            prefix
+        });
+    let suffix = path.extension().map_or(OsString::new(), |extension| {
+        let mut suffix = OsString::from(".");
+        suffix.push(extension);
+        suffix
+    });
+    Builder::new()
+        .prefix(&prefix)
+        .suffix(&suffix)
+        .tempfile_in(parent)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::{read_to_string, write};
+    use std::{
+        ffi::OsStr,
+        fs::{read_dir, read_to_string, write},
+    };
+    use tempfile::tempdir;
 
     #[cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
     #[test]
@@ -96,6 +117,29 @@ mod test {
         let after = mtime(tempfile.path()).unwrap();
 
         assert!(before < after, "{before:?} not less than {after:?}");
+    }
+
+    #[cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
+    #[test]
+    fn prefix_and_suffix() {
+        let tempdir = tempdir().unwrap();
+
+        let lib_rs_path = tempdir.path().join("lib.rs");
+
+        write(&lib_rs_path, "").unwrap();
+
+        let _backup = Backup::new(&lib_rs_path).unwrap();
+
+        for result in read_dir(&tempdir).unwrap() {
+            let entry = result.unwrap();
+            let path = entry.path();
+            if path == lib_rs_path {
+                continue;
+            }
+            let s = path.file_name().and_then(OsStr::to_str).unwrap();
+            assert!(s.starts_with(".lib-"));
+            assert!(s.ends_with(".rs"));
+        }
     }
 
     #[cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
