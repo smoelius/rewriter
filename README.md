@@ -16,7 +16,7 @@ Rust utilities for rewriting files
 
 ## Features
 
-- `proc-macro2-span`: By default `rewriter`, uses its own `Span` and `LineColumn` types. When this feature is enabled, `rewriter` instead uses the corresponding types from [`proc-macro2`]. This feature implies `proc-macro2-impl` below.
+- `proc-macro2-span`: By default, `rewriter` uses its own `Span` and `LineColumn` types. When this feature is enabled, `rewriter` instead uses the corresponding types from [`proc-macro2`]. This feature implies `proc-macro2-impl` below.
 
 - `proc-macro2-impl`: Implement the `Span` and `LineColumn` traits for the corresponding types in [`proc-macro2`].
 
