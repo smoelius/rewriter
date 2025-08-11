@@ -1,6 +1,6 @@
 [package]
 name = "rewriter"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Samuel Moelius <sam@moeli.us>"]
 description = "Rust utilities for rewriting files"
 edition = "2024"
