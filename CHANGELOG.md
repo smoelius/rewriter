@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Update `ctor` to version 0.5 ([#23](https://github.com/smoelius/rewriter/pull/23))
+
 ## 0.2.0
 
 - More revealing backup filenames ([e46df66](https://github.com/smoelius/rewriter/commit/e46df662673861c909161aa1524fcb3bbb2f1a0c))
