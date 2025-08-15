@@ -43,6 +43,12 @@ impl Interface for LazyRewriter<'_> {
     fn rewrite(&mut self, start: usize, end: usize, replacement: &str) -> String {
         assert!(self.offset <= start);
 
+        if self.original.len() <= start {
+            return String::new();
+        }
+
+        let end = std::cmp::min(end, self.original.len());
+
         self.rewritten += &self.original[self.offset..start];
         self.rewritten += replacement;
 

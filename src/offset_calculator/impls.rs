@@ -74,13 +74,15 @@ impl<S: Span> Interface<S> for CachingOffsetCalculator<'_, S> {
 
         let n_columns = line_column.column() - self.line_column.column();
 
-        let chars = self.chars_mut();
+        // smoelius: There could be no more characters to read, in which case the current `offset`
+        // and `ascii` values are returned.
+        if let Some(chars) = self.chars_mut() {
+            let (offset, ascii) = advance_chars(chars, n_columns);
+            self.offset += offset;
+            self.ascii &= ascii;
 
-        let (offset, ascii) = advance_chars(chars, n_columns);
-        self.offset += offset;
-        self.ascii &= ascii;
-
-        *self.line_column.column_mut() = line_column.column();
+            *self.line_column.column_mut() = line_column.column();
+        }
 
         (self.offset, self.ascii)
     }
@@ -93,7 +95,10 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
         }
 
         // smoelius: Account for any remaining characters in the current line.
-        let suffix = self.chars_mut().collect::<String>();
+        let Some(suffix) = self.chars_mut().map(Iterator::collect::<String>) else {
+            // smoelius: If there are no more characters to read, return.
+            return;
+        };
 
         // smoelius: Ensure `chars` is refilled the next time `chars_mut` is called.
         self.chars = None;
@@ -104,7 +109,10 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
         *self.line_column.column_mut() = 0;
 
         while self.line_column.line() < line {
-            let line = self.next_line();
+            let Some(line) = self.next_line() else {
+                // smoelius: If there are no more lines to read, return.
+                return;
+            };
 
             self.offset += line.len() + 1;
             self.ascii &= line.is_ascii();
@@ -113,23 +121,28 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
         }
     }
 
-    /// Returns the contents of [`Self::chars`]. Calls [`Self::next_line`] if [`Self::chars`] is
-    /// `None`.
-    fn chars_mut(&mut self) -> &mut Chars<'original> {
+    /// Returns the contents of [`Self::chars`]
+    ///
+    /// Calls [`Self::next_line`] if [`Self::chars`] is `None`. Returns `None` if there are no more
+    /// lines to read.
+    fn chars_mut(&mut self) -> Option<&mut Chars<'original>> {
         #[allow(clippy::disallowed_methods)]
         if self.chars.is_none() {
-            self.chars = Some(self.next_line().chars());
+            let line = self.next_line()?;
+            self.chars = Some(line.chars());
         }
-        self.chars.as_mut().unwrap()
+        self.chars.as_mut()
     }
 
     /// Fetches the next line from [`Self::lines`]
-    fn next_line(&mut self) -> &'original str {
-        let line = self.lines.next().unwrap();
+    ///
+    /// Returns `None` if there are no more lines to read.
+    fn next_line(&mut self) -> Option<&'original str> {
+        let line = self.lines.next()?;
         if let Some(line_history) = &mut self.line_history {
             line_history.push((self.offset, self.ascii, line));
         }
-        line
+        Some(line)
     }
 }
 
