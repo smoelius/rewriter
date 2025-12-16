@@ -97,10 +97,7 @@ fn sibling_tempfile(path: &Path) -> Result<NamedTempFile> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::{
-        ffi::OsStr,
-        fs::{read_dir, read_to_string, write},
-    };
+    use std::fs::{read_dir, read_to_string, write};
     use tempfile::tempdir;
 
     #[cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
@@ -136,7 +133,8 @@ mod test {
             if path == lib_rs_path {
                 continue;
             }
-            let s = path.file_name().and_then(OsStr::to_str).unwrap();
+            let file_name = entry.file_name();
+            let s = file_name.to_str().unwrap();
             assert!(s.starts_with(".lib-"));
             assert!(s.ends_with(".rs"));
         }
