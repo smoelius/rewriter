@@ -60,9 +60,12 @@ fn markdown_link_check() {
         .success();
 
     // smoelius: https://github.com/rust-lang/crates.io/issues/788
-    let config = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/markdown_link_check.json");
+    let config = Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/markdown_link_check.json"
+    ));
 
-    let readme_md = Path::new(env!("CARGO_MANIFEST_DIR")).join("README.md");
+    let readme_md = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"));
 
     Command::new("npx")
         .args([
