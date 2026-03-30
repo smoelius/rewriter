@@ -136,7 +136,11 @@ mod test {
             let file_name = entry.file_name();
             let s = file_name.to_str().unwrap();
             assert!(s.starts_with(".lib-"));
-            assert!(s.ends_with(".rs"));
+            assert!(
+                Path::new(s)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("rs"))
+            );
         }
     }
 
