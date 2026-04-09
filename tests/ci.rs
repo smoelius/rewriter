@@ -20,27 +20,24 @@ fn dylint() {
 }
 
 #[test]
-fn hack_feature_powerset_clippy() {
-    hack_feature_powerset("clippy");
+fn hack_each_feature_clippy() {
+    hack_each_feature("clippy");
 }
 
 #[test]
-fn hack_feature_powerset_udeps() {
-    hack_feature_powerset("udeps");
+fn hack_each_feature_udeps() {
+    hack_each_feature("udeps");
 }
 
-fn hack_feature_powerset(subcommand: &str) {
+fn hack_each_feature(subcommand: &str) {
     Command::new("rustup")
-        // smoelius: Remove `CARGO` environment variable to work around:
-        // https://github.com/rust-lang/rust/pull/131729
-        .env_remove("CARGO")
         .env("RUSTFLAGS", "-D warnings")
         .args([
             "run",
             "nightly",
             "cargo",
             "hack",
-            "--feature-powerset",
+            "--each-feature",
             subcommand,
         ])
         .assert()
