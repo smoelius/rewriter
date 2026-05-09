@@ -3,7 +3,7 @@ use regex::Regex;
 use std::{env::remove_var, fs::read_to_string, path::Path, process::Command};
 use tempfile::tempdir;
 
-#[ctor::ctor]
+#[ctor::ctor(unsafe)]
 fn initialize() {
     unsafe {
         remove_var("CARGO_TERM_COLOR");
