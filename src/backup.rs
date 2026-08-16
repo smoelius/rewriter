@@ -1,8 +1,10 @@
 use std::{
     ffi::OsString,
-    io::Result,
+    fs::{File, FileTimes},
+    io::{Error, Result},
     path::{Path, PathBuf},
-    time::SystemTime,
+    thread,
+    time::{Duration, SystemTime},
 };
 use tempfile::{Builder, NamedTempFile};
 
@@ -31,43 +33,76 @@ impl Backup {
 
 impl Drop for Backup {
     fn drop(&mut self) {
-        if let Some(tempfile) = self.tempfile.take() {
-            // smoelius: Ensure the file's mtime is updated, e.g., for build systems that rely on
-            // this information. A useful relevant article: https://apenwarr.ca/log/20181113
-            let before = mtime(&self.path).ok();
+        let Some(tempfile) = self.tempfile.take() else {
+            return;
+        };
 
-            loop {
-                #[cfg(target_os = "linux")]
-                let result = std::fs::copy(&tempfile, &self.path);
+        // smoelius: Try to get the file's mtime before the copy, so that we can check whether it
+        // was updated after the copy. A useful relevant article: https://apenwarr.ca/log/20181113
+        let before = get_mtime(&self.path).ok();
 
-                #[cfg(not(target_os = "linux"))]
-                let result = manual_copy(tempfile.path(), &self.path);
-
-                if result.is_err() {
-                    break;
-                }
-
-                let after = mtime(&self.path).ok();
-
-                if before
-                    .zip(after)
-                    .is_none_or(|(before, after)| before < after)
-                {
-                    break;
-                }
-            }
+        // smoelius: Copy the backup over the original file. If the copy fails, return.
+        if std::fs::copy(&tempfile, &self.path).is_err() {
+            return;
         }
+
+        // smoelius: Did we get the file's mtime before the copy? If not, return, because we have
+        // nothing to compare to.
+        let Some(before) = before else {
+            return;
+        };
+
+        // smoelius: Can we get the file's mtime after the copy, and is it later than before? If
+        // "yes" to both, consider that success and return.
+        if get_mtime(&self.path).is_ok_and(|after| before < after) {
+            return;
+        }
+
+        // smoelius: If before is in the future, return, because it's hard to know what to do in
+        // that situation.
+        let now = SystemTime::now();
+        if now < before {
+            return;
+        }
+
+        // smoelius: Try to set the file's mtime to now. If we can read back something that is later
+        // than before, consider that success and return.
+        if set_mtime(&self.path, now).is_ok()
+            && get_mtime(&self.path).is_ok_and(|nowish| before < nowish)
+        {
+            return;
+        }
+
+        // smoelius: Since nothing else has worked, pick a time in the future, sleep until then, and
+        // then set the file's mtime to that time.
+        let _: Result<SystemTime> = sleep_and_set_mtime(&self.path, before, now);
     }
 }
 
-fn mtime(path: &Path) -> Result<SystemTime> {
+fn get_mtime(path: &Path) -> Result<SystemTime> {
     path.metadata().and_then(|metadata| metadata.modified())
 }
 
-#[cfg(not(target_os = "linux"))]
-fn manual_copy(from: &Path, to: &Path) -> Result<()> {
-    let contents = std::fs::read(from)?;
-    std::fs::write(to, contents)
+fn sleep_and_set_mtime(path: &Path, before: SystemTime, now: SystemTime) -> Result<SystemTime> {
+    // smoelius: For FAT file systems, "write time has a resolution of 2 seconds" according to the
+    // following link: https://learn.microsoft.com/en-us/windows/win32/sysinfo/file-times
+    const MIN_DURATION: Duration = Duration::from_secs(2);
+
+    let Some(deadline) = before.checked_add(MIN_DURATION) else {
+        return Err(Error::other("overflow"));
+    };
+
+    if let Ok(duration) = deadline.duration_since(now) {
+        thread::sleep(duration);
+    }
+
+    set_mtime(path, deadline).map(|()| deadline)
+}
+
+fn set_mtime(path: &Path, modified: SystemTime) -> Result<()> {
+    let file = File::options().write(true).open(path)?;
+    let times = FileTimes::new().set_modified(modified);
+    file.set_times(times)
 }
 
 fn sibling_tempfile(path: &Path) -> Result<NamedTempFile> {
@@ -107,11 +142,11 @@ mod test {
 
         let backup = Backup::new(&tempfile).unwrap();
 
-        let before = mtime(tempfile.path()).unwrap();
+        let before = get_mtime(tempfile.path()).unwrap();
 
         drop(backup);
 
-        let after = mtime(tempfile.path()).unwrap();
+        let after = get_mtime(tempfile.path()).unwrap();
 
         assert!(before < after, "{before:?} not less than {after:?}");
     }
