@@ -8,8 +8,10 @@ use std::{
 };
 use tempfile::{Builder, NamedTempFile};
 
+#[derive(Debug)]
 pub struct Backup {
     path: PathBuf,
+    unaltered_permissions: Permissions,
     tempfile: Option<NamedTempFile>,
 }
 
@@ -18,16 +20,45 @@ impl Backup {
     where
         P: AsRef<Path>,
     {
-        let tempfile = sibling_tempfile(path.as_ref())?;
-        std::fs::copy(&path, &tempfile)?;
+        let path = path.as_ref();
+        let original_permissions = get_permissions_from_path(path)?;
+        if original_permissions.readonly() {
+            return Err(Error::from(ErrorKind::PermissionDenied));
+        }
+        let tempfile = sibling_tempfile(path)?;
+        std::fs::copy(path, &tempfile)?;
+        let unaltered_permissions = get_permissions_from_file(tempfile.as_file())?;
+        debug_assert!(!unaltered_permissions.readonly());
+        let readonly_permissions = readonly_permissions(&unaltered_permissions);
+        tempfile.as_file().set_permissions(readonly_permissions)?;
         Ok(Self {
-            path: path.as_ref().to_path_buf(),
+            path: path.to_path_buf(),
+            unaltered_permissions,
             tempfile: Some(tempfile),
         })
     }
 
     pub fn disable(&mut self) -> Result<()> {
-        self.tempfile.take().map_or(Ok(()), NamedTempFile::close)
+        let Some(tempfile) = self.tempfile.take() else {
+            return Ok(());
+        };
+
+        let mut result = Ok(());
+
+        // smoelius: On Windows, a read-only file cannot be deleted. However, Linux and macOS do not
+        // have this restriction.
+        #[cfg(windows)]
+        {
+            result = result.and(
+                tempfile
+                    .as_file()
+                    .set_permissions(self.unaltered_permissions.clone()),
+            );
+        }
+
+        result = result.and(tempfile.close());
+
+        result
     }
 }
 
@@ -36,6 +67,15 @@ impl Drop for Backup {
         let Some(tempfile) = self.tempfile.take() else {
             return;
         };
+
+        // smoelius: On Linux and macOS, `std::fs::copy` copies the tempfile's permission bits to
+        // the original file. And, on Windows, a read-only file cannot be deleted. Hence, on all
+        // three platforms, the tempfile's unaltered permissions must be restored. If the attempt
+        // fails, continue, so that the original file is still restored. However, this may cause the
+        // original file to become read-only.
+        let _: Result<()> = tempfile
+            .as_file()
+            .set_permissions(self.unaltered_permissions.clone());
 
         // smoelius: Try to get the file's mtime before the copy, so that we can check whether it
         // was updated after the copy. A useful relevant article: https://apenwarr.ca/log/20181113
@@ -79,6 +119,7 @@ impl Drop for Backup {
     }
 }
 
+#[allow(clippy::disallowed_methods)]
 fn get_mtime(path: &Path) -> Result<SystemTime> {
     path.metadata().and_then(|metadata| metadata.modified())
 }
@@ -127,6 +168,22 @@ fn sibling_tempfile(path: &Path) -> Result<NamedTempFile> {
         .prefix(&prefix)
         .suffix(&suffix)
         .tempfile_in(parent)
+}
+
+#[allow(clippy::disallowed_methods)]
+fn get_permissions_from_path(path: &Path) -> Result<Permissions> {
+    path.metadata().map(|metadata| metadata.permissions())
+}
+
+#[allow(clippy::disallowed_methods)]
+fn get_permissions_from_file(file: &File) -> Result<Permissions> {
+    file.metadata().map(|metadata| metadata.permissions())
+}
+
+fn readonly_permissions(permissions: &Permissions) -> Permissions {
+    let mut permissions = permissions.clone();
+    permissions.set_readonly(true);
+    permissions
 }
 
 #[cfg(test)]
@@ -191,6 +248,89 @@ mod tests {
 
         drop(backup);
 
-        assert!(read_to_string(&tempfile).unwrap().is_empty());
+        assert_eq!("", read_to_string(&tempfile).unwrap());
+
+        let permissions = get_permissions_from_file(tempfile.as_file()).unwrap();
+        assert!(!permissions.readonly());
+    }
+
+    #[test]
+    fn backup_rejects_read_only_file() {
+        let tempfile = NamedTempFile::new().unwrap();
+        let unaltered_permissions = get_permissions_from_file(tempfile.as_file()).unwrap();
+        let readonly_permissions = readonly_permissions(&unaltered_permissions);
+        tempfile
+            .as_file()
+            .set_permissions(readonly_permissions)
+            .unwrap();
+
+        let result = Backup::new(&tempfile);
+
+        // smoelius: Restore the tempfile's unaltered permission so that it can be deleted on
+        // Windows.
+        tempfile
+            .as_file()
+            .set_permissions(unaltered_permissions)
+            .unwrap();
+
+        let error = result.unwrap_err();
+        assert_eq!(ErrorKind::PermissionDenied, error.kind());
+    }
+
+    #[test]
+    fn backup_is_readonly() {
+        let tempfile = NamedTempFile::new().unwrap();
+
+        let backup = Backup::new(&tempfile).unwrap();
+
+        let backup_tempfile = backup.tempfile.as_ref().unwrap();
+        let backup_permissions = get_permissions_from_file(backup_tempfile.as_file()).unwrap();
+        assert!(backup_permissions.readonly());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn backup_preserves_read_and_execute_permission_bits() {
+        use std::os::unix::fs::PermissionsExt;
+
+        const ORIGINAL_MODE: u32 = 0o751;
+        const READONLY_MODE: u32 = 0o551;
+        const PERMISSION_MASK: u32 = 0o777;
+
+        let original = NamedTempFile::new().unwrap();
+        let original_permissions = std::fs::Permissions::from_mode(ORIGINAL_MODE);
+        original
+            .as_file()
+            .set_permissions(original_permissions)
+            .unwrap();
+
+        let backup = Backup::new(&original).unwrap();
+
+        let backup_tempfile = backup.tempfile.as_ref().unwrap();
+        let backup_permissions = get_permissions_from_file(backup_tempfile.as_file()).unwrap();
+        assert_eq!(READONLY_MODE, backup_permissions.mode() & PERMISSION_MASK);
+
+        drop(backup);
+
+        let original_permissions = get_permissions_from_file(original.as_file()).unwrap();
+        assert_eq!(ORIGINAL_MODE, original_permissions.mode() & PERMISSION_MASK);
+    }
+
+    #[test]
+    fn disable_preserves_changes_and_removes_backup() {
+        let tempfile = NamedTempFile::new().unwrap();
+
+        let mut backup = Backup::new(&tempfile).unwrap();
+        let backup_path = backup.tempfile.as_ref().unwrap().path().to_path_buf();
+
+        write(&tempfile, "x").unwrap();
+
+        backup.disable().unwrap();
+
+        assert!(!backup_path.exists());
+
+        drop(backup);
+
+        assert_eq!("x", read_to_string(&tempfile).unwrap());
     }
 }
