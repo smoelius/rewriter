@@ -16,6 +16,27 @@ pub struct Backup {
 }
 
 impl Backup {
+    /// Creates a new [`Backup`] of the file at `path`. When dropped, the `Backup` attempts to
+    /// restore the file to its original contents. Alternatively, one can call
+    /// [`Backup::disable`] so that changes to the file at `path` are preserved.
+    ///
+    /// # Errors
+    ///
+    /// [`Backup::new`] requires that the file at `path` not be marked read-only, and returns
+    /// [`ErrorKind::PermissionDenied`] when it is. Read-only files are rejected because restoring
+    /// their contents may fail and, on Windows, the copied backup file may not be deletable.
+    ///
+    /// Note that this check is intended to prevent common failures but cannot prevent all of them.
+    /// For example, the original file's permissions could change after they are checked.
+    ///
+    /// `Backup::new` can also return other I/O errors, e.g., if the file's metadata cannot be
+    /// obtained.
+    ///
+    /// # Panics
+    ///
+    /// Panics when debug assertions are enabled and copying the original file results in a backup
+    /// that is marked read-only. Note that, because of the check described above, such a panic
+    /// should occur only when a permissions change races with `Backup::new`.
     pub fn new<P>(path: P) -> Result<Self>
     where
         P: AsRef<Path>,
