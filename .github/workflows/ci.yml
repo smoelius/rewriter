@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - main
   schedule:
     - cron: "0 3 * * wed"
   workflow_dispatch:
@@ -17,14 +17,34 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
+  check-up-to-dateness:
+    outputs:
+      is-up-to-date: ${{ steps.main.outputs.is-up-to-date }}
+
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - id: main
+        uses: trailofbits/check-up-to-dateness@v2
 
-      - name: Dylint versions
-        run: cargo search dylint | sort | tee dylint_versions
+  test:
+    needs: [check-up-to-dateness]
+
+    if: needs.check-up-to-dateness.outputs.is-up-to-date != 'true'
+
+    strategy:
+      fail-fast: ${{ github.event_name == 'merge_group' }}
+      matrix:
+        environment: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.environment }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v7
 
       - uses: actions/cache@v6
         with:
@@ -33,10 +53,15 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.cargo/git/checkouts/
             ~/.dylint_drivers/
             ~/.rustup/toolchains/
             target/dylint/
-          key: ${{ runner.os }}-dylint-${{ hashFiles('dylint_versions') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: taiki-e/install-action@v2.85.12
+        with:
+          tool: cargo-hack, cargo-udeps
 
       - name: Install tools
         run: |
@@ -44,9 +69,23 @@ jobs:
           rustup install nightly
           rustup component add clippy --toolchain nightly
           cargo install cargo-dylint dylint-link || true
-          cargo install cargo-hack               || true
-          cargo install cargo-udeps              || true
           cargo install unset                    || true
 
       - name: Test
         run: cargo test --config "target.'cfg(all())'.runner = 'unset'"
+
+  all-checks:
+    needs: [test]
+
+    # smoelius: From "Defining prerequisite jobs"
+    # (https://docs.github.com/en/actions/using-jobs/using-jobs-in-a-workflow#defining-prerequisite-jobs):
+    # > If you would like a job to run even if a job it is dependent on did not succeed, use the
+    # > `always()` conditional expression in `jobs.<job_id>.if`.
+    if: ${{ always() }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check results
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
