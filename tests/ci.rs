@@ -37,7 +37,7 @@ fn hack_each_feature(subcommand: &str) {
         .success();
 }
 
-#[cfg_attr(windows, ignore)]
+#[cfg_attr(windows, ignore = "node.js is unavailable")]
 #[test]
 fn markdown_link_check() {
     let tempdir = tempdir().unwrap();
