@@ -32,6 +32,7 @@ fn hack_each_feature(subcommand: &str) {
             "hack",
             "--each-feature",
             subcommand,
+            "--all-targets",
         ])
         .assert()
         .success();
