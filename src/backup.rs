@@ -1,7 +1,7 @@
 use std::{
     ffi::OsString,
-    fs::{File, FileTimes},
-    io::{Error, Result},
+    fs::{File, FileTimes, Permissions},
+    io::{Error, ErrorKind, Result},
     path::{Path, PathBuf},
     thread,
     time::{Duration, SystemTime},
@@ -131,11 +131,12 @@ fn sibling_tempfile(path: &Path) -> Result<NamedTempFile> {
 
 #[cfg(test)]
 mod tests {
+    #![cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
+
     use super::*;
     use std::fs::{read_dir, read_to_string, write};
     use tempfile::tempdir;
 
-    #[cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
     #[test]
     fn mtime_is_updated() {
         let tempfile = NamedTempFile::new().unwrap();
@@ -151,7 +152,6 @@ mod tests {
         assert!(before < after, "{before:?} not less than {after:?}");
     }
 
-    #[cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
     #[test]
     fn prefix_and_suffix() {
         let tempdir = tempdir().unwrap();
@@ -179,7 +179,6 @@ mod tests {
         }
     }
 
-    #[cfg_attr(dylint_lib = "general", allow(non_thread_safe_call_in_test))]
     #[test]
     fn sanity() {
         let tempfile = NamedTempFile::new().unwrap();
