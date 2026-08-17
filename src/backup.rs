@@ -130,7 +130,7 @@ fn sibling_tempfile(path: &Path) -> Result<NamedTempFile> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use std::fs::{read_dir, read_to_string, write};
     use tempfile::tempdir;
