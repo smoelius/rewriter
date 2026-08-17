@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+
+- Add `TextEdit` comparison to README.md ([5fd728b](https://github.com/smoelius/rewriter/commit/5fd728be7fdca8309aa41216ff98dc9990010b5f))
+- Set file `mtime` explicitly rather than manually copying file contents ([e20c64e](https://github.com/smoelius/rewriter/commit/e20c64edafe35993a28dff22feacfa28e14c65af))
+- BREAKING: Make backup files read-only ([f2ecaee](https://github.com/smoelius/rewriter/commit/f2ecaeebdf9cab338b76ec0e3b2664b67961f30a))
+- BREAKING: Document `Backup::new`, including requirement that original file be writable ([c166010](https://github.com/smoelius/rewriter/commit/c1660100955520347ff05644d36ee4bf3532cf93))
+
 ## 0.2.1
 
 - Handle out-of-bounds spans ([#27](https://github.com/smoelius/rewriter/pull/27))
