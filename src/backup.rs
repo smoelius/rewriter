@@ -1,6 +1,6 @@
 use std::{
     ffi::OsString,
-    fs::{File, FileTimes, Permissions},
+    fs::{File, FileTimes, Permissions, set_permissions},
     io::{Error, ErrorKind, Result},
     path::{Path, PathBuf},
     thread,
@@ -11,7 +11,6 @@ use tempfile::{Builder, NamedTempFile};
 #[derive(Debug)]
 pub struct Backup {
     path: PathBuf,
-    unaltered_permissions: Permissions,
     tempfile: Option<NamedTempFile>,
 }
 
@@ -54,7 +53,6 @@ impl Backup {
         tempfile.as_file().set_permissions(readonly_permissions)?;
         Ok(Self {
             path: path.to_path_buf(),
-            unaltered_permissions,
             tempfile: Some(tempfile),
         })
     }
@@ -66,15 +64,19 @@ impl Backup {
 
         let mut result = Ok(());
 
-        // smoelius: On Windows, a read-only file cannot be deleted. However, Linux and macOS do not
-        // have this restriction.
+        // On Windows, a read-only file cannot be deleted. However, Linux and macOS do not have this
+        // restriction. Clearing the flag on Windows affects only `FILE_ATTRIBUTE_READONLY`, not any
+        // ACL. Note that this must stay Windows-only: `set_readonly(false)` on Unix would make the
+        // file world-writable.
         #[cfg(windows)]
         {
-            result = result.and(
-                tempfile
-                    .as_file()
-                    .set_permissions(self.unaltered_permissions.clone()),
-            );
+            result = result.and(get_permissions_from_file(tempfile.as_file()).and_then(
+                |permissions| {
+                    tempfile
+                        .as_file()
+                        .set_permissions(writable_permissions(&permissions))
+                },
+            ));
         }
 
         result = result.and(tempfile.close());
@@ -89,22 +91,41 @@ impl Drop for Backup {
             return;
         };
 
-        // smoelius: On Linux and macOS, `std::fs::copy` copies the tempfile's permission bits to
-        // the original file. And, on Windows, a read-only file cannot be deleted. Hence, on all
-        // three platforms, the tempfile's unaltered permissions must be restored. If the attempt
-        // fails, continue, so that the original file is still restored. However, this may cause the
-        // original file to become read-only.
-        let _: Result<()> = tempfile
-            .as_file()
-            .set_permissions(self.unaltered_permissions.clone());
+        // smoelius: Get the original file's current permissions so that they can be preserved
+        // across the copy. If they cannot be obtained, do not consider that a failure. It is better
+        // to restore the file with its original contents but wrong permissions than to not restore
+        // the file at all.
+        let original_permissions = get_permissions_from_path(&self.path).ok();
 
         // smoelius: Try to get the file's mtime before the copy, so that we can check whether it
         // was updated after the copy. A useful relevant article: https://apenwarr.ca/log/20181113
         let before = get_mtime(&self.path).ok();
 
+        // smoelius: If we obtained the original file's current permissions above, then set them on
+        // the backup. Since `Backup::new` rejects read-only files, this normally clears the
+        // backup's read-only bit, without which the backup could not be deleted on Windows. It also
+        // causes `std::fs::copy` to propagate the permissions to the original file, in case the
+        // attempt to set the permissions below does not succeed.
+        //
+        // Should the original file have become read-only since `Backup::new` was called, the bit is
+        // not cleared. But then the copy below fails anyway.
+        if let Some(original_permissions) = original_permissions.as_ref() {
+            let _: Result<()> = tempfile
+                .as_file()
+                .set_permissions(original_permissions.clone());
+        }
+
         // smoelius: Copy the backup over the original file. If the copy fails, return.
         if std::fs::copy(&tempfile, &self.path).is_err() {
             return;
+        }
+
+        // smoelius: If we obtained the original file's current permissions above, then set them on
+        // the original file here. This is the attempt that matters: unlike the one above, it does
+        // not depend on how much metadata `std::fs::copy` propagates, which varies by platform. If
+        // we are unable to set the permissions, do not consider that a failure.
+        if let Some(original_permissions) = original_permissions {
+            let _: Result<()> = set_permissions(&self.path, original_permissions);
         }
 
         // smoelius: Did we get the file's mtime before the copy? If not, return, because we have
@@ -204,6 +225,18 @@ fn get_permissions_from_file(file: &File) -> Result<Permissions> {
 fn readonly_permissions(permissions: &Permissions) -> Permissions {
     let mut permissions = permissions.clone();
     permissions.set_readonly(true);
+    permissions
+}
+
+// `clippy::permissions_set_readonly_false` warns that `set_readonly(false)` makes a file
+// world-writable on Unix platforms and suggests using `PermissionsExt` instead.
+// `writable_permissions` is Windows-only, where the call clears just `FILE_ATTRIBUTE_READONLY`, and
+// where `PermissionsExt` is still unstable.
+#[allow(clippy::permissions_set_readonly_false)]
+#[cfg(windows)]
+fn writable_permissions(permissions: &Permissions) -> Permissions {
+    let mut permissions = permissions.clone();
+    permissions.set_readonly(false);
     permissions
 }
 
@@ -311,30 +344,136 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn backup_preserves_read_and_execute_permission_bits() {
+    fn file_attributes_are_preserved() {
         use std::os::unix::fs::PermissionsExt;
 
-        const ORIGINAL_MODE: u32 = 0o751;
-        const READONLY_MODE: u32 = 0o551;
-        const PERMISSION_MASK: u32 = 0o777;
+        // `ORIGINAL_MODE` is deliberately not the mode that `write` would produce, so that a
+        // restored mode derived from the umask rather than from the original is caught.
+        //
+        // On macOS, each special bit behaves differently: `chmod` silently drops setgid, any write
+        // clears setuid, and only sticky both sets and survives writes. Hence, sticky is the one
+        // special bit macOS can be asked to preserve.
+        const ORIGINAL_MODE: u32 = if cfg!(target_os = "macos") {
+            0o1644
+        } else {
+            0o7644
+        };
+        const SPECIAL_MODE_BITS: u32 = if cfg!(target_os = "macos") {
+            0o1000
+        } else {
+            0o7000
+        };
 
-        let original = NamedTempFile::new().unwrap();
-        let original_permissions = std::fs::Permissions::from_mode(ORIGINAL_MODE);
-        original
-            .as_file()
-            .set_permissions(original_permissions)
-            .unwrap();
+        let tempdir = tempdir().unwrap();
+        let original_path = tempdir.path().join("original");
+        write(&original_path, "").unwrap();
+        set_permissions(&original_path, Permissions::from_mode(ORIGINAL_MODE)).unwrap();
 
-        let backup = Backup::new(&original).unwrap();
+        let before_mode = get_permissions_from_path(&original_path).unwrap().mode();
+        assert_eq!(
+            SPECIAL_MODE_BITS,
+            before_mode & SPECIAL_MODE_BITS,
+            "{before_mode:o}"
+        );
 
-        let backup_tempfile = backup.tempfile.as_ref().unwrap();
-        let backup_permissions = get_permissions_from_file(backup_tempfile.as_file()).unwrap();
-        assert_eq!(READONLY_MODE, backup_permissions.mode() & PERMISSION_MASK);
+        let backup = Backup::new(&original_path).unwrap();
+
+        // That the restore actually happened is verified with the mtime. By comparison, the Windows
+        // counterpart verifies it by changing the contents. A write cannot be used here because it
+        // would clear the setuid bit that `ORIGINAL_MODE` sets on Linux.
+        let before_mtime = get_mtime(&original_path).unwrap();
 
         drop(backup);
 
-        let original_permissions = get_permissions_from_file(original.as_file()).unwrap();
-        assert_eq!(ORIGINAL_MODE, original_permissions.mode() & PERMISSION_MASK);
+        let after_mtime = get_mtime(&original_path).unwrap();
+        assert!(
+            before_mtime < after_mtime,
+            "{before_mtime:?} not less than {after_mtime:?}"
+        );
+
+        let after_mode = get_permissions_from_path(&original_path).unwrap().mode();
+        assert_eq!(before_mode, after_mode, "{before_mode:o} != {after_mode:o}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn file_attributes_are_preserved() {
+        const FILE_ATTRIBUTE_TEMPORARY: u32 = 0x100;
+
+        let tempdir = tempdir().unwrap();
+        let original_path = tempdir.path().join("original");
+        write(&original_path, "").unwrap();
+
+        let before = file_attributes(&original_path);
+        assert_eq!(0, before & FILE_ATTRIBUTE_TEMPORARY, "{before:#x}");
+
+        let backup = Backup::new(&original_path).unwrap();
+
+        let backup_path = backup.tempfile.as_ref().unwrap().path();
+        let backup_attributes = file_attributes(backup_path);
+        assert_ne!(
+            0,
+            backup_attributes & FILE_ATTRIBUTE_TEMPORARY,
+            "{backup_attributes:#x}"
+        );
+
+        // Change the contents so that the assertions below cannot pass when the restore does not
+        // happen at all.
+        write(&original_path, "x").unwrap();
+
+        drop(backup);
+
+        assert_eq!("", read_to_string(&original_path).unwrap());
+
+        let after = file_attributes(&original_path);
+        assert_eq!(before, after, "{before:#x} != {after:#x}");
+    }
+
+    #[cfg(windows)]
+    fn file_attributes(path: &Path) -> u32 {
+        use std::os::windows::fs::MetadataExt;
+
+        std::fs::metadata(path).unwrap().file_attributes()
+    }
+
+    // A permissions change made while the `Backup` is alive survives the restore, because `Drop`
+    // reads the original file's permissions when it runs rather than relying on what they were when
+    // `Backup::new` was called.
+    //
+    // This test is Unix-only because `Permissions` models just the read-only flag on Windows, and
+    // marking the original read-only would make `CopyFileExW` fail with `ERROR_ACCESS_DENIED`
+    // rather than exercise the restore.
+    #[cfg(unix)]
+    #[test]
+    fn permission_changes_are_preserved() {
+        use std::os::unix::fs::PermissionsExt;
+
+        const ORIGINAL_MODE: u32 = 0o644;
+        const MODIFIED_MODE: u32 = 0o755;
+
+        let tempdir = tempdir().unwrap();
+        let original_path = tempdir.path().join("original");
+        write(&original_path, "").unwrap();
+        set_permissions(&original_path, Permissions::from_mode(ORIGINAL_MODE)).unwrap();
+
+        let original = get_permissions_from_path(&original_path).unwrap().mode();
+
+        let backup = Backup::new(&original_path).unwrap();
+
+        // Change the contents as well as the permissions, so that the assertions below cannot pass
+        // when the restore does not happen at all.
+        write(&original_path, "x").unwrap();
+        set_permissions(&original_path, Permissions::from_mode(MODIFIED_MODE)).unwrap();
+
+        let modified = get_permissions_from_path(&original_path).unwrap().mode();
+        assert_ne!(original, modified, "{original:o}");
+
+        drop(backup);
+
+        assert_eq!("", read_to_string(&original_path).unwrap());
+
+        let after = get_permissions_from_path(&original_path).unwrap().mode();
+        assert_eq!(modified, after, "{modified:o} != {after:o}");
     }
 
     #[test]
