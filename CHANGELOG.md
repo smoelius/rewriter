@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0
+
+- BREAKING: When `Backup` is dropped, read the original file's permissions and make a best-effort attempt to preserve them. Previously, permissions changes made while the `Backup` was alive were discarded. This fixes a bug in version 1.0.0 where `FILE_ATTRIBUTE_TEMPORARY` could be set on the original file on Windows. We say "best-effort" because certain permissions changes could cause the restoration to fail. For example, if the original file were to become read-only, the restoration would fail. Note that `Backup::new` still requires the original file to be writable when the function is called. ([8f81d3a](https://github.com/smoelius/rewriter/commit/8f81d3a105199aa34b2337143171049d9023fd0c))
+
 ## 1.0.0
 
 - Add `TextEdit` comparison to README.md ([5fd728b](https://github.com/smoelius/rewriter/commit/5fd728be7fdca8309aa41216ff98dc9990010b5f))
