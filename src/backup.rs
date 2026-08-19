@@ -57,6 +57,12 @@ impl Backup {
         })
     }
 
+    /// Returns the path of the original file
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
     pub fn disable(&mut self) -> Result<()> {
         let Some(tempfile) = self.tempfile.take() else {
             return Ok(());
