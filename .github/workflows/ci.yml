@@ -59,7 +59,7 @@ jobs:
             target/dylint/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - uses: taiki-e/install-action@v2.85.12
+      - uses: taiki-e/install-action@v2.86.3
         with:
           tool: cargo-hack, cargo-udeps
 
