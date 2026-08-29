@@ -2,7 +2,7 @@
 
 ## 2.1.0
 
-- Add `Backup::path` method to return the path to the `Backup`'s original file ([c0c02c5](https://github.com/smoelius/rewriter/commit/c0c02c58b93be615e66aa0a80fa26bf29c1cc063))
+- FEATURE: Add `Backup::path` method to return the path to the `Backup`'s original file ([c0c02c5](https://github.com/smoelius/rewriter/commit/c0c02c58b93be615e66aa0a80fa26bf29c1cc063))
 
 ## 2.0.0
 
