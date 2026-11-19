@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.1
+
+- Fix offset calculation beyond the end of input ([2a97a35](https://github.com/smoelius/rewriter/commit/2a97a359044558325d3fa96fc08130d8643798a9))
+
 ## 2.1.0
 
 - FEATURE: Add `Backup::path` method to return the path to the `Backup`'s original file ([c0c02c5](https://github.com/smoelius/rewriter/commit/c0c02c58b93be615e66aa0a80fa26bf29c1cc063))
