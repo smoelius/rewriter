@@ -1,5 +1,6 @@
 disallowed-methods = [
-    { path = "str::chars" },
     { path = "std::fs::File::metadata" },
     { path = "std::path::Path::metadata" },
+    { path = "str::chars" },
+    { path = "str::lines", reason = "use `split('\n')`" },
 ]

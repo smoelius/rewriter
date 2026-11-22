@@ -75,6 +75,7 @@ fn markdown_link_check() {
 fn readme_reference_links_are_sorted() {
     let re = Regex::new(r"^\[[^\]]*\]:").unwrap();
     let readme = read_to_string("README.md").unwrap();
+    #[allow(clippy::disallowed_methods)]
     let links = readme
         .lines()
         .filter(|line| re.is_match(line))
