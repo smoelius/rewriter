@@ -9,6 +9,7 @@ repository = "https://github.com/smoelius/rewriter"
 
 [dependencies]
 tempfile = "3.27"
+thiserror = "2.0"
 
 proc-macro2 = { version = "1.0", features = [
     "span-locations",

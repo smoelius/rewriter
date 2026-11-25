@@ -1,5 +1,5 @@
-use crate::SpanDefault;
-use crate::interface::Span;
+use crate::{SpanDefault, interface::Span};
+use thiserror::Error;
 
 #[cfg(feature = "__check-proc-macro2-spans")]
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -14,12 +14,30 @@ use impls::StatelessOffsetCalculator;
 #[cfg(feature = "__check-proc-macro2-spans")]
 static BASE_NEXT: AtomicUsize = AtomicUsize::new(0);
 
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum OffsetCalculatorError<S: Span> {
+    #[error(
+        "`offset_from_line_column` called with a `LineColumn` in the past: {actual_line_column:?} \
+         < {expected_min_line_column:?}"
+    )]
+    CallWithPastLineColumn {
+        expected_min_line_column: S::LineColumn,
+        actual_line_column: S::LineColumn,
+    },
+    #[error("line or column is out of bounds")]
+    OutOfBoundsLineColumn,
+}
+
 pub trait Interface<S: Span> {
     /// Returns the byte offset for `line_column`
     ///
     /// The second component (the `bool`) indicates whether all characters up to the offset are
     /// ASCII.
-    fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool);
+    fn offset_from_line_column(
+        &mut self,
+        line_column: S::LineColumn,
+    ) -> Result<(usize, bool), OffsetCalculatorError<S>>;
 }
 
 #[derive(Debug)]
@@ -57,9 +75,12 @@ impl<'original, S: Span> OffsetCalculator<'original, S> {
         }
     }
 
-    pub fn offsets_from_span(&mut self, span: &S) -> (usize, usize) {
-        let (start, start_ascii) = self.offset_from_line_column(span.start());
-        let (end, end_ascii) = self.offset_from_line_column(span.end());
+    pub fn offsets_from_span(
+        &mut self,
+        span: &S,
+    ) -> Result<(usize, usize), OffsetCalculatorError<S>> {
+        let (start, start_ascii) = self.offset_from_line_column(span.start())?;
+        let (end, end_ascii) = self.offset_from_line_column(span.end())?;
 
         assert!(!end_ascii || start_ascii);
 
@@ -78,22 +99,29 @@ impl<'original, S: Span> OffsetCalculator<'original, S> {
             );
         }
 
-        (start, end)
+        Ok((start, end))
     }
 }
 
 impl<S: Span> Interface<S> for OffsetCalculator<'_, S> {
-    fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool) {
-        let (offset, ascii) = self.caching.offset_from_line_column(line_column);
+    fn offset_from_line_column(
+        &mut self,
+        line_column: S::LineColumn,
+    ) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+        let result = self.caching.offset_from_line_column(line_column);
 
         #[cfg(feature = "check-offsets")]
-        {
-            let (offset_comparator, ascii_comparator) =
-                self.stateless.offset_from_line_column(line_column);
-            assert_eq!(offset, offset_comparator, "failed for {line_column:?}");
-            assert_eq!(ascii, ascii_comparator, "failed for {line_column:?}");
+        if !matches!(
+            &result,
+            Err(OffsetCalculatorError::CallWithPastLineColumn { .. })
+        ) {
+            assert_eq!(
+                result.as_ref().ok().copied(),
+                self.stateless.offset_from_line_column(line_column).ok(),
+                "failed for {line_column:?}"
+            );
         }
 
-        (offset, ascii)
+        result
     }
 }

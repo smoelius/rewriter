@@ -1,4 +1,4 @@
-use rewriter::{LineColumn, Rewriter, Span};
+use rewriter::{LineColumn, Rewriter, RewriterError, Span};
 
 // smoelius:
 //
@@ -27,6 +27,6 @@ fn oob_span() {
     ];
     for &(start, end) in PAIRS {
         let span = Span::new(start, end);
-        let _: String = Rewriter::new("X").rewrite(&span, "Y");
+        let _: RewriterError<_> = Rewriter::new("X").rewrite(&span, "Y").unwrap_err();
     }
 }
