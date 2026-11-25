@@ -96,7 +96,7 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
         }
 
         // smoelius: Account for any remaining characters in the current line.
-        let Some(suffix) = self.chars_mut().map(Iterator::collect::<String>) else {
+        let Some(suffix) = self.chars_mut().map(|chars| chars.as_str()) else {
             // smoelius: If there are no more characters to read, return.
             return;
         };
@@ -174,18 +174,23 @@ impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
         let Some(line) = lines.next() else {
             return (offset, ascii);
         };
-        let prefix = line.chars().take(line_column.column()).collect::<String>();
-        offset += prefix.len();
-        ascii &= prefix.is_ascii();
+        let (column_offset, column_ascii) = advance_chars(&mut line.chars(), line_column.column());
+        offset += column_offset;
+        ascii &= column_ascii;
 
         (offset, ascii)
     }
 }
 
 fn advance_chars(chars: &mut Chars, n: usize) -> (usize, bool) {
-    let prefix = chars.take(n).collect::<String>();
-    let offset = prefix.len();
-    let ascii = prefix.is_ascii();
+    let mut offset = 0;
+    let mut ascii = true;
+
+    for ch in chars.take(n) {
+        offset += ch.len_utf8();
+        ascii &= ch.is_ascii();
+    }
+
     (offset, ascii)
 }
 
