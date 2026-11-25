@@ -1,4 +1,4 @@
-use super::Interface;
+use super::{Interface, OffsetCalculatorError};
 use crate::interface::{LineColumn, Span};
 use std::{
     iter::Peekable,
@@ -52,13 +52,19 @@ impl<'original, S: Span> StatelessOffsetCalculator<'original, S> {
 }
 
 impl<S: Span> Interface<S> for CachingOffsetCalculator<'_, S> {
-    fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool) {
+    fn offset_from_line_column(
+        &mut self,
+        line_column: S::LineColumn,
+    ) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+        if line_column.line() == 0 {
+            return Err(OffsetCalculatorError::OutOfBoundsLineColumn);
+        }
         if line_column < self.line_column {
             let Some(lines_prev) = &self.line_history else {
-                panic!(
-                    "`offset_from_line_column` called on a `LineColumn` in the past: {:?} < {:?}",
-                    line_column, self.line_column
-                )
+                return Err(OffsetCalculatorError::CallWithPastLineColumn {
+                    expected_min_line_column: self.line_column,
+                    actual_line_column: line_column,
+                });
             };
 
             let (line_offset, line_ascii, line) = lines_prev[line_column.line() - 1];
@@ -66,26 +72,26 @@ impl<S: Span> Interface<S> for CachingOffsetCalculator<'_, S> {
             // smoelius: It is okay to call `str::chars` here because the line is in the past.
             #[allow(clippy::disallowed_methods)]
             let (column_offset, column_ascii) =
-                advance_chars(&mut line.chars(), line_column.column());
+                advance_chars(&mut line.chars(), line_column.column())?;
 
-            return (line_offset + column_offset, line_ascii && column_ascii);
+            return Ok((line_offset + column_offset, line_ascii && column_ascii));
         }
 
         self.advance_to_line(line_column.line());
 
         let n_columns = line_column.column() - self.line_column.column();
 
-        // smoelius: There could be no more characters to read, in which case the current `offset`
-        // and `ascii` values are returned.
         if let Some(chars) = self.chars_mut() {
-            let (offset, ascii) = advance_chars(chars, n_columns);
+            let (offset, ascii) = advance_chars(chars, n_columns)?;
             self.offset += offset;
             self.ascii &= ascii;
 
             *self.line_column.column_mut() = line_column.column();
+        } else {
+            return Err(OffsetCalculatorError::OutOfBoundsLineColumn);
         }
 
-        (self.offset, self.ascii)
+        Ok((self.offset, self.ascii))
     }
 }
 
@@ -154,44 +160,56 @@ impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
         dylint_lib = "misleading_variable_name",
         allow(misleading_variable_name)
     )]
-    fn offset_from_line_column(&mut self, line_column: S::LineColumn) -> (usize, bool) {
+    fn offset_from_line_column(
+        &mut self,
+        line_column: S::LineColumn,
+    ) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+        if line_column.line() == 0 {
+            return Err(OffsetCalculatorError::OutOfBoundsLineColumn);
+        }
         let mut lines = self.original.split('\n').peekable();
         let mut offset = 0;
         let mut ascii = true;
 
         for _ in 1..line_column.line() {
-            // Like the caching calculator, stop at `original.len()` once the input is exhausted.
-            let Some(line) = lines.next() else {
-                return (offset, ascii);
-            };
+            let line = lines
+                .next()
+                .ok_or(OffsetCalculatorError::OutOfBoundsLineColumn)?;
             // Like the caching calculator, count a newline only when another line follows in
             // `lines`.
             offset += line.len() + usize::from(lines.peek().is_some());
             ascii &= line.is_ascii();
         }
 
-        // See the comment above re input exhaustion.
-        let Some(line) = lines.next() else {
-            return (offset, ascii);
-        };
-        let (column_offset, column_ascii) = advance_chars(&mut line.chars(), line_column.column());
+        let line = lines
+            .next()
+            .ok_or(OffsetCalculatorError::OutOfBoundsLineColumn)?;
+        let (column_offset, column_ascii) = advance_chars(&mut line.chars(), line_column.column())?;
         offset += column_offset;
         ascii &= column_ascii;
 
-        (offset, ascii)
+        Ok((offset, ascii))
     }
 }
 
-fn advance_chars(chars: &mut Chars, n: usize) -> (usize, bool) {
+fn advance_chars<S: Span>(
+    chars: &mut Chars,
+    n: usize,
+) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+    let mut remaining = chars.clone();
     let mut offset = 0;
     let mut ascii = true;
 
-    for ch in chars.take(n) {
+    for _ in 0..n {
+        let ch = remaining
+            .next()
+            .ok_or(OffsetCalculatorError::OutOfBoundsLineColumn)?;
         offset += ch.len_utf8();
         ascii &= ch.is_ascii();
     }
 
-    (offset, ascii)
+    *chars = remaining;
+    Ok((offset, ascii))
 }
 
 #[cfg(test)]
@@ -199,7 +217,8 @@ mod tests {
     use super::*;
     use crate::{LineColumn, Span};
 
-    fn out_of_bounds_cases() -> impl Iterator<Item = (&'static str, LineColumn)> {
+    fn out_of_bounds_cases()
+    -> impl Iterator<Item = (&'static str, LineColumn, Option<(usize, bool)>)> {
         const ORIGINALS: &[&str] = &[
             "", "\n", "\n\n", "x", "x\n", "x\ny", "x\ny\n", "χ", "χ\n", "χ\nψ", "χ\nψ\n",
         ];
@@ -219,6 +238,7 @@ mod tests {
                             line: index + 1,
                             column,
                         },
+                        (column == end_column).then_some((original.len(), original.is_ascii())),
                     )
                 })
                 .chain([0, 1, usize::MAX].into_iter().map(move |column| {
@@ -228,6 +248,7 @@ mod tests {
                             line: index + 2,
                             column,
                         },
+                        None,
                     )
                 }))
                 .chain([0, 1, usize::MAX].into_iter().map(move |column| {
@@ -237,6 +258,7 @@ mod tests {
                             line: index + 3,
                             column,
                         },
+                        None,
                     )
                 }))
         })
@@ -244,13 +266,12 @@ mod tests {
 
     #[test]
     fn out_of_bounds_lookup() {
-        for (original, line_column) in out_of_bounds_cases() {
-            let expected = (original.len(), original.is_ascii());
-
+        for (original, line_column, expected) in out_of_bounds_cases() {
             let mut stateless = StatelessOffsetCalculator::<Span>::new(original);
+
             assert_eq!(
                 expected,
-                stateless.offset_from_line_column(line_column),
+                stateless.offset_from_line_column(line_column).ok(),
                 "original = {original:?}, line_column = {line_column:?}",
             );
 
@@ -260,13 +281,13 @@ mod tests {
             ] {
                 assert_eq!(
                     expected,
-                    caching.offset_from_line_column(line_column),
+                    caching.offset_from_line_column(line_column).ok(),
                     "original = {original:?}, line_column = {line_column:?}",
                 );
                 // Repeated lookups must preserve the exhausted state.
                 assert_eq!(
                     expected,
-                    caching.offset_from_line_column(line_column),
+                    caching.offset_from_line_column(line_column).ok(),
                     "repeated lookup: original = {original:?}, line_column = {line_column:?}",
                 );
             }
@@ -275,7 +296,7 @@ mod tests {
 
     #[test]
     fn out_of_bounds_lookup_after_reading_all_characters() {
-        for (original, line_column) in out_of_bounds_cases() {
+        for (original, line_column, expected) in out_of_bounds_cases() {
             let mut stateless = StatelessOffsetCalculator::<Span>::new(original);
             for mut caching in [
                 CachingOffsetCalculator::<Span>::new(original),
@@ -289,15 +310,15 @@ mod tests {
                             column,
                         };
                         assert_eq!(
-                            stateless.offset_from_line_column(line_column),
-                            caching.offset_from_line_column(line_column),
+                            stateless.offset_from_line_column(line_column).unwrap(),
+                            caching.offset_from_line_column(line_column).unwrap(),
                             "original = {original:?}, line_column = {line_column:?}",
                         );
                     }
                 }
                 assert_eq!(
-                    (original.len(), original.is_ascii()),
-                    caching.offset_from_line_column(line_column),
+                    expected,
+                    caching.offset_from_line_column(line_column).ok(),
                     "original = {original:?}, line_column = {line_column:?}",
                 );
             }
@@ -306,14 +327,14 @@ mod tests {
 
     #[test]
     fn out_of_bounds_lookup_followed_by_past_line_lookups() {
-        for (original, line_column) in out_of_bounds_cases() {
+        for (original, line_column, expected) in out_of_bounds_cases() {
             let mut stateless = StatelessOffsetCalculator::<Span>::new(original);
             // smoelius: A `CachingOffsetCalculator` constructed with `without_line_history` does
             // not support past line lookups.
             let mut caching = CachingOffsetCalculator::<Span>::new(original);
             assert_eq!(
-                (original.len(), original.is_ascii()),
-                caching.offset_from_line_column(line_column),
+                expected,
+                caching.offset_from_line_column(line_column).ok(),
                 "original = {original:?}, line_column = {line_column:?}",
             );
             let line = original.split('\n').count();
@@ -323,8 +344,8 @@ mod tests {
                     column: 0,
                 };
                 assert_eq!(
-                    stateless.offset_from_line_column(line_column),
-                    caching.offset_from_line_column(line_column),
+                    stateless.offset_from_line_column(line_column).unwrap(),
+                    caching.offset_from_line_column(line_column).unwrap(),
                     "original = {original:?}, line_column = {line_column:?}",
                 );
             }

@@ -6,10 +6,10 @@ pub mod interface;
 mod offset_based_rewriter;
 
 mod offset_calculator;
-pub use offset_calculator::OffsetCalculator;
+pub use offset_calculator::{OffsetCalculator, OffsetCalculatorError};
 
 mod rewriter;
-pub use rewriter::Rewriter;
+pub use rewriter::{Rewriter, RewriterError};
 
 mod span;
 pub use span::{LineColumn, Span};
