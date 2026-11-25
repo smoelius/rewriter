@@ -148,13 +148,6 @@ impl<'original, S: Span> CachingOffsetCalculator<'original, S> {
     }
 }
 
-fn advance_chars(chars: &mut Chars, n: usize) -> (usize, bool) {
-    let prefix = chars.take(n).collect::<String>();
-    let offset = prefix.len();
-    let ascii = prefix.is_ascii();
-    (offset, ascii)
-}
-
 #[allow(clippy::disallowed_methods)]
 impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
     #[cfg_attr(
@@ -187,6 +180,13 @@ impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
 
         (offset, ascii)
     }
+}
+
+fn advance_chars(chars: &mut Chars, n: usize) -> (usize, bool) {
+    let prefix = chars.take(n).collect::<String>();
+    let offset = prefix.len();
+    let ascii = prefix.is_ascii();
+    (offset, ascii)
 }
 
 #[cfg(test)]
