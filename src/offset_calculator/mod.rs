@@ -25,6 +25,8 @@ pub enum OffsetCalculatorError<S: Span> {
         expected_min_line_column: S::LineColumn,
         actual_line_column: S::LineColumn,
     },
+    #[error("span end is before span start")]
+    InvalidSpan,
     #[error("line or column is out of bounds")]
     OutOfBoundsLineColumn,
 }
@@ -79,6 +81,10 @@ impl<'original, S: Span> OffsetCalculator<'original, S> {
         &mut self,
         span: &S,
     ) -> Result<(usize, usize), OffsetCalculatorError<S>> {
+        if span.start() > span.end() {
+            return Err(OffsetCalculatorError::InvalidSpan);
+        }
+
         let (start, start_ascii) = self.offset_from_line_column(span.start())?;
         let (end, end_ascii) = self.offset_from_line_column(span.end())?;
 
