@@ -44,6 +44,7 @@ pattern = [
     "examples/restriction/collapsible_unwrap",
     "examples/restriction/const_path_join",
     "examples/restriction/misleading_variable_name",
+    "examples/restriction/non_topologically_sorted_functions",
     "examples/restriction/question_mark_in_expression",
     "examples/restriction/try_io_result",
 ]
