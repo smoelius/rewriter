@@ -16,6 +16,7 @@ proc-macro2 = { version = "1.0", features = [
 ], optional = true }
 
 [dev-dependencies]
+anyhow = "1.0"
 assert_cmd = "2.2"
 regex = "1.13"
 

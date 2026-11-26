@@ -77,3 +77,18 @@ impl<'original, S: Span> Rewriter<'original, S> {
         Ok(replaced)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result;
+
+    #[expect(dead_code, clippy::unnecessary_map_on_constructor)]
+    fn rewriter_error_converts_to_anyhow() -> Result<()> {
+        Err(RewriterError::CallWithPastSpan {
+            expected_min_line_column: LineColumn::default(),
+            actual_span: crate::Span::default(),
+        })
+        .map_err(Into::into)
+    }
+}
