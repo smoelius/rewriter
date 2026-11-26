@@ -1,5 +1,6 @@
 use super::{Interface, OffsetCalculatorError};
 use crate::interface::{LineColumn, Span};
+use crate::span::LineColumnExt;
 use std::{
     iter::Peekable,
     marker::PhantomData,
@@ -55,15 +56,15 @@ impl<S: Span> Interface<S> for CachingOffsetCalculator<'_, S> {
     fn offset_from_line_column(
         &mut self,
         line_column: S::LineColumn,
-    ) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+    ) -> Result<(usize, bool), OffsetCalculatorError> {
         if line_column.line() == 0 {
             return Err(OffsetCalculatorError::OutOfBoundsLineColumn);
         }
         if line_column < self.line_column {
             let Some(lines_prev) = &self.line_history else {
                 return Err(OffsetCalculatorError::CallWithPastLineColumn {
-                    expected_min_line_column: self.line_column,
-                    actual_line_column: line_column,
+                    expected_min_line_column: self.line_column.to_crate_line_column(),
+                    actual_line_column: line_column.to_crate_line_column(),
                 });
             };
 
@@ -163,7 +164,7 @@ impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
     fn offset_from_line_column(
         &mut self,
         line_column: S::LineColumn,
-    ) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+    ) -> Result<(usize, bool), OffsetCalculatorError> {
         if line_column.line() == 0 {
             return Err(OffsetCalculatorError::OutOfBoundsLineColumn);
         }
@@ -192,10 +193,7 @@ impl<S: Span> Interface<S> for StatelessOffsetCalculator<'_, S> {
     }
 }
 
-fn advance_chars<S: Span>(
-    chars: &mut Chars,
-    n: usize,
-) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+fn advance_chars(chars: &mut Chars, n: usize) -> Result<(usize, bool), OffsetCalculatorError> {
     let mut remaining = chars.clone();
     let mut offset = 0;
     let mut ascii = true;
