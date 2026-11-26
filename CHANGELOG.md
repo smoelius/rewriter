@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0
+
+- Avoid temporary strings in offset calculations ([536173a](https://github.com/smoelius/rewriter/commit/536173a6f5eb1ddff08232741e543c57860a3a3b))
+- BREAKING: `Rewriter::rewrite` and `OffsetCalculator::offsets_from_span` now return `Result` ([f42d20e](https://github.com/smoelius/rewriter/commit/f42d20e7fd12d4b07f78feab4c9234dcf7b3b6c5), [b0c9c73](https://github.com/smoelius/rewriter/commit/b0c9c73eec8ea2d8bea9dda7d90620f6068b18f1), [0521484](https://github.com/smoelius/rewriter/commit/052148401cbc790eb92c8c68b5acd437dcd44f59), and [04da99b](https://github.com/smoelius/rewriter/commit/04da99b03d6ddf4d6c276411642e521dd6897f53))
+- Fix insertion at end of input ([e2cc2ad](https://github.com/smoelius/rewriter/commit/e2cc2ad5e48112381e8d3049c3e5d8ee67bf09bc))
+
 ## 2.1.1
 
 - Fix offset calculation beyond the end of input ([2a97a35](https://github.com/smoelius/rewriter/commit/2a97a359044558325d3fa96fc08130d8643798a9))
