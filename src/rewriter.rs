@@ -9,8 +9,12 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum RewriterError {
-    #[error("expected_min_line_column = {expected_min_line_column:#?}, actual_span.start() = {:?}, \
-             actual_span.end() = {:?}", actual_span.start(), actual_span.end())]
+    #[error(
+        "`rewrite` called with a span in the past: expected_min_line_column = \
+         {expected_min_line_column:?}, actual_span.start() = {:?}, actual_span.end() = {:?}",
+        actual_span.start(),
+        actual_span.end()
+    )]
     CallWithPastSpan {
         expected_min_line_column: LineColumn,
         actual_span: crate::Span,
