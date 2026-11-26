@@ -128,3 +128,18 @@ impl<S: Span> Interface<S> for OffsetCalculator<'_, S> {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Result;
+
+    #[expect(dead_code, clippy::unnecessary_map_on_constructor)]
+    fn offset_calculator_error_converts_to_anyhow() -> Result<()> {
+        Err(OffsetCalculatorError::CallWithPastLineColumn {
+            expected_min_line_column: LineColumn::default(),
+            actual_line_column: LineColumn::default(),
+        })
+        .map_err(Into::into)
+    }
+}
