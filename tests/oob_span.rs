@@ -27,6 +27,6 @@ fn oob_span() {
     ];
     for &(start, end) in PAIRS {
         let span = Span::new(start, end);
-        let _: RewriterError<_> = Rewriter::new("X").rewrite(&span, "Y").unwrap_err();
+        let _: RewriterError = Rewriter::new("X").rewrite(&span, "Y").unwrap_err();
     }
 }

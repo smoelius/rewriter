@@ -1,21 +1,22 @@
-use crate::SpanDefault;
 use crate::interface::Span;
 use crate::offset_based_rewriter::{self, OffsetBasedRewriter};
 use crate::offset_calculator::{OffsetCalculator, OffsetCalculatorError};
+use crate::span::{LineColumnExt, SpanExt};
+use crate::{LineColumn, SpanDefault};
 use std::{cell::RefCell, rc::Rc};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum RewriterError<S: Span> {
+pub enum RewriterError {
     #[error("expected_min_line_column = {expected_min_line_column:#?}, actual_span.start() = {:?}, \
              actual_span.end() = {:?}", actual_span.start(), actual_span.end())]
     CallWithPastSpan {
-        expected_min_line_column: S::LineColumn,
-        actual_span: S,
+        expected_min_line_column: LineColumn,
+        actual_span: crate::Span,
     },
     #[error(transparent)]
-    OffsetCalculatorError(#[from] OffsetCalculatorError<S>),
+    OffsetCalculatorError(#[from] OffsetCalculatorError),
 }
 
 #[derive(Debug)]
@@ -50,13 +51,13 @@ impl<'original, S: Span> Rewriter<'original, S> {
         self.offset_based_rewriter.contents()
     }
 
-    pub fn rewrite(&mut self, span: &S, replacement: &str) -> Result<String, RewriterError<S>> {
+    pub fn rewrite(&mut self, span: &S, replacement: &str) -> Result<String, RewriterError> {
         use offset_based_rewriter::Interface;
 
         if self.line_column > span.start() {
             return Err(RewriterError::CallWithPastSpan {
-                expected_min_line_column: self.line_column,
-                actual_span: span.clone(),
+                expected_min_line_column: self.line_column.to_crate_line_column(),
+                actual_span: span.to_crate_span(),
             });
         }
 

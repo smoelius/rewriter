@@ -1,4 +1,4 @@
-use crate::{SpanDefault, interface::Span};
+use crate::{LineColumn, SpanDefault, interface::Span};
 use thiserror::Error;
 
 #[cfg(feature = "__check-proc-macro2-spans")]
@@ -16,14 +16,14 @@ static BASE_NEXT: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Error)]
 #[non_exhaustive]
-pub enum OffsetCalculatorError<S: Span> {
+pub enum OffsetCalculatorError {
     #[error(
         "`offset_from_line_column` called with a `LineColumn` in the past: {actual_line_column:?} \
          < {expected_min_line_column:?}"
     )]
     CallWithPastLineColumn {
-        expected_min_line_column: S::LineColumn,
-        actual_line_column: S::LineColumn,
+        expected_min_line_column: LineColumn,
+        actual_line_column: LineColumn,
     },
     #[error("span end is before span start")]
     InvalidSpan,
@@ -39,7 +39,7 @@ pub trait Interface<S: Span> {
     fn offset_from_line_column(
         &mut self,
         line_column: S::LineColumn,
-    ) -> Result<(usize, bool), OffsetCalculatorError<S>>;
+    ) -> Result<(usize, bool), OffsetCalculatorError>;
 }
 
 #[derive(Debug)]
@@ -77,10 +77,7 @@ impl<'original, S: Span> OffsetCalculator<'original, S> {
         }
     }
 
-    pub fn offsets_from_span(
-        &mut self,
-        span: &S,
-    ) -> Result<(usize, usize), OffsetCalculatorError<S>> {
+    pub fn offsets_from_span(&mut self, span: &S) -> Result<(usize, usize), OffsetCalculatorError> {
         if span.start() > span.end() {
             return Err(OffsetCalculatorError::InvalidSpan);
         }
@@ -113,7 +110,7 @@ impl<S: Span> Interface<S> for OffsetCalculator<'_, S> {
     fn offset_from_line_column(
         &mut self,
         line_column: S::LineColumn,
-    ) -> Result<(usize, bool), OffsetCalculatorError<S>> {
+    ) -> Result<(usize, bool), OffsetCalculatorError> {
         let result = self.caching.offset_from_line_column(line_column);
 
         #[cfg(feature = "check-offsets")]

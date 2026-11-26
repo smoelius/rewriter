@@ -78,3 +78,25 @@ impl interface::Span for Span {
         self.end
     }
 }
+
+pub(crate) trait LineColumnExt: interface::LineColumn {
+    fn to_crate_line_column(&self) -> LineColumn {
+        LineColumn {
+            line: self.line(),
+            column: self.column(),
+        }
+    }
+}
+
+impl<T: interface::LineColumn> LineColumnExt for T {}
+
+pub(crate) trait SpanExt: interface::Span {
+    fn to_crate_span(&self) -> Span {
+        Span {
+            start: self.start().to_crate_line_column(),
+            end: self.end().to_crate_line_column(),
+        }
+    }
+}
+
+impl<T: interface::Span> SpanExt for T {}
