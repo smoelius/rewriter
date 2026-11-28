@@ -134,6 +134,40 @@ mod tests {
     use super::*;
     use anyhow::Result;
 
+    #[test]
+    fn last_valid_line_column_without_terminating_newline() {
+        assert_last_valid_line_column("x\nyχ", LineColumn { line: 2, column: 2 });
+    }
+
+    #[test]
+    fn last_valid_line_column_with_terminating_newline() {
+        assert_last_valid_line_column("x\nyχ\n", LineColumn { line: 3, column: 0 });
+    }
+
+    fn assert_last_valid_line_column(original: &str, line_column: LineColumn) {
+        let mut calculator = OffsetCalculator::<crate::Span>::new(original);
+
+        let (offset, _) = calculator.offset_from_line_column(line_column).unwrap();
+        assert_eq!(original.len(), offset, "{original:?}");
+
+        for oob_line_column in [
+            LineColumn {
+                line: line_column.line,
+                column: line_column.column + 1,
+            },
+            LineColumn {
+                line: line_column.line + 1,
+                column: 0,
+            },
+        ] {
+            let result = calculator.offset_from_line_column(oob_line_column);
+            assert!(
+                matches!(result, Err(OffsetCalculatorError::OutOfBoundsLineColumn)),
+                "{original:?} at {oob_line_column:?}: {result:?}"
+            );
+        }
+    }
+
     #[expect(dead_code, clippy::unnecessary_map_on_constructor)]
     fn offset_calculator_error_converts_to_anyhow() -> Result<()> {
         Err(OffsetCalculatorError::CallWithPastLineColumn {
